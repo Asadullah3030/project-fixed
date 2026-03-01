@@ -9,6 +9,7 @@ import { AboutPage } from './pages/AboutPage';
 import { ContactPage } from './pages/ContactPage';
 import { ThankYouPage } from './pages/ThankYouPage';
 import { ProductCategory, allCategories } from './data/products';
+import { AdminApp } from './AdminApp';
 
 // ============================================
 // URL <-> PAGE STATE MAPPING
@@ -57,6 +58,8 @@ function parseUrl(): PageState {
       return { page: 'contact' };
     case 'thankyou':
       return { page: 'thankyou' };
+    case 'admin':
+    return { page: 'admin' };
     default:
       return { page: 'home' };
   }
@@ -83,6 +86,8 @@ function getUrlForPage(page: string, data?: any): string {
       return '/contact';
     case 'thankyou':
       return '/thankyou';
+    case 'admin':
+      return '/admin';
     default:
       return '/';
   }
@@ -160,6 +165,8 @@ export function App() {
         return <ContactPage />;
       case 'thankyou':
         return <ThankYouPage onNavigate={handleNavigate} />;
+      case 'admin':
+        return <AdminApp />;
       default:
         return (
           <HomePage
