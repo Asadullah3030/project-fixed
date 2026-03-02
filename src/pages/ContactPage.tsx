@@ -152,16 +152,16 @@ export function ContactPage() {
               <h2 className="text-lg font-bold text-gray-800 mb-4">Business Hours</h2>
               <div className="space-y-3">
                 <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                  <span className="text-gray-600">Monday - Friday</span>
+                  <span className="text-gray-600">Monday - Thursday</span>
                   <span className="font-medium text-gray-800">9:00 AM - 8:00 PM</span>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                  <span className="text-gray-600">Saturday</span>
-                  <span className="font-medium text-gray-800">9:00 AM - 6:00 PM</span>
+                  <span className="text-gray-600">Friday</span>
+                  <span className="font-medium text-emerald-600">9:00 AM - 12:00 PM</span>
                 </div>
                 <div className="flex justify-between items-center py-2">
                   <span className="text-gray-600">Sunday</span>
-                  <span className="font-medium text-emerald-600">Open (Limited Hours)</span>
+                  <span className="font-medium text-gray-800">9:00 AM - 8:00 PM</span>
                 </div>
               </div>
             </div>

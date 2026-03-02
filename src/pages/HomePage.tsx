@@ -52,7 +52,7 @@ export function HomePage({ onNavigate, onViewProduct }: HomePageProps) {
             Pakistan's Trusted<br />
             <span className="text-yellow-400">Electrical Products</span> Supplier
           </h1>
-          <p className="text-emerald-100 text-lg md:text-xl mb-8 max-w-2xl mx-auto">
+          <p className="text-emerald-100 text-lg md:text-lg mb-8 max-w-2xl mx-auto">
             DC/AC Breakers, Relay Protection, Distribution Boxes & More — Quality Products, Best Prices
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
