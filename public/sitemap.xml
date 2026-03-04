@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+  <!-- Home Page -->
+  <url>
+    <loc>https://www.dawoodtrader.shop/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+
+  <!-- Products Page -->
+  <url>
+    <loc>https://www.dawoodtrader.shop/products</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Contact Page -->
+  <url>
+    <loc>https://www.dawoodtrader.shop/contact</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Category: DC Breakers -->
+  <url>
+    <loc>https://www.dawoodtrader.shop/category/dc-breakers</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Category: AC Breakers -->
+  <url>
+    <loc>https://www.dawoodtrader.shop/category/ac-breakers</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Category: Relay Protection -->
+  <url>
+    <loc>https://www.dawoodtrader.shop/category/relay-protection</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- DC Breaker Products -->
+  <url>
+    <loc>https://www.dawoodtrader.shop/product/dc-breakers/32A</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.dawoodtrader.shop/product/dc-breakers/63A</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.dawoodtrader.shop/product/dc-breakers/125A</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- AC Breaker Products -->
+  <url>
+    <loc>https://www.dawoodtrader.shop/product/ac-breakers/32A</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.dawoodtrader.shop/product/ac-breakers/63A</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Relay Protection Products -->
+  <url>
+    <loc>https://www.dawoodtrader.shop/product/relay-protection/Relay-One</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.dawoodtrader.shop/product/relay-protection/Relay-Two</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.dawoodtrader.shop/product/relay-protection/Relay-Three</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.dawoodtrader.shop/product/relay-protection/Relay-Four</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.dawoodtrader.shop/product/relay-protection/Relay-Five</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+</urlset>
