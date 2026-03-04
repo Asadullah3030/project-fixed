@@ -71,7 +71,7 @@ interface SEOProps {
 // ============================================
 // BASE URL CONSTANT
 // ============================================
-const BASE_URL = 'https://dawoodtrader.netlify.app';
+const BASE_URL = 'https://dawoodtrader.shop';
 const DEFAULT_IMAGE = 'https://ik.imagekit.io/dawoodtraders/About-us-imag.png?updatedAt=1759056897852';
 
 // ============================================
