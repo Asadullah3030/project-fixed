@@ -1,12 +1,14 @@
-// ============================================
-// ADMIN AUTH
-// Simple password-based auth with localStorage
-// ============================================
-
+// src/context/AuthContext.tsx
 import { createContext, useContext, useState, ReactNode } from 'react';
 
-const ADMIN_PASSWORD = 'dawood$11@'; // Change this!
-const AUTH_KEY = 'dt_admin_auth';
+// ⚠️ Yeh password sirf aap ko pata hona chahiye
+// GitHub pe push karne se pehle apna password set karo
+const ADMIN_PASSWORD = 'Dawood$11@';
+
+// Admin ka secret URL - /admin ki jagah yeh use hoga
+export const ADMIN_SECRET_PATH = 'admin';
+
+const AUTH_KEY = 'admin';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -21,7 +23,6 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // sessionStorage use karo — tab close hone par auto logout
   const [isAuthenticated, setIsAuthenticated] = useState(
     () => sessionStorage.getItem(AUTH_KEY) === 'true'
   );
