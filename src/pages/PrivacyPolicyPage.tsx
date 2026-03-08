@@ -10,7 +10,7 @@ export function PrivacyPolicyPage({ onNavigate }: PrivacyPolicyPageProps) {
   const siteName = 'Dawood Trader';
   const siteUrl = 'https://dawoodtrader.shop';
   const email = 'dawoodtrader@gmail.com';
-  const phone = '+92 306 1339140';
+  const phone = '+92 3083611140';
 
   return (
     <div className="min-h-screen bg-gray-50 overflow-x-hidden">

@@ -198,7 +198,7 @@ export function BlogPostPage({ slug, onNavigate }: BlogPostPageProps) {
             <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-5 text-white">
               <h3 className="font-bold text-lg mb-2">Need a Product?</h3>
               <p className="text-emerald-100 text-sm mb-4">Order directly on WhatsApp — fast delivery across Pakistan!</p>
-              <a href="https://wa.me/923061339140" target="_blank" rel="noopener noreferrer"
+              <a href="https://wa.me/923083611140" target="_blank" rel="noopener noreferrer"
                 className="w-full bg-white text-emerald-600 font-bold py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 hover:bg-emerald-50 transition-colors">
                 Order on WhatsApp
               </a>

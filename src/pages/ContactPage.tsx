@@ -64,8 +64,8 @@ export function ContactPage() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-800">Phone</h3>
-                    <a href="tel:+923061339140" className="text-emerald-600 hover:text-emerald-700">
-                      +92 3061339140
+                    <a href="tel:+923083611140" className="text-emerald-600 hover:text-emerald-700">
+                      +92 3083611140
                     </a>
                   </div>
                 </div>
@@ -116,7 +116,7 @@ export function ContactPage() {
                 The fastest way to reach us! Send us a message on WhatsApp and we'll respond within 10 minutes.
               </p>
               <a
-                href="https://wa.me/923061339140"
+                href="https://wa.me/923083611140"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 bg-white text-green-600 px-6 py-3 rounded-xl font-semibold hover:bg-gray-50 transition-colors"

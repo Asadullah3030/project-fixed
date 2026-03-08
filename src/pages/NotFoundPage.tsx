@@ -64,7 +64,7 @@ export function NotFoundPage({ onNavigate }: NotFoundPageProps) {
         <div className="mt-8 pt-8 border-t border-white/10">
           <p className="text-slate-500 text-sm mb-3">Koi masla? Hum se baat karein</p>
           <a
-            href="https://wa.me/923061339140"
+            href="https://wa.me/923083611140"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 bg-green-500/20 hover:bg-green-500/30 border border-green-500/30 text-green-400 font-semibold px-5 py-2.5 rounded-xl transition-all text-sm"

@@ -35,7 +35,7 @@ export function ThankYouPage({ onNavigate }: ThankYouPageProps) {
               Continue Shopping
             </button>
             <a
-              href="https://wa.me/923061339140"
+              href="https://wa.me/923083611140"
               target="_blank"
               rel="noopener noreferrer"
               className="bg-green-500 text-white px-6 py-3 rounded-xl font-medium hover:bg-green-600 transition-colors flex items-center justify-center gap-2"

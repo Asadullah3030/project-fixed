@@ -158,7 +158,7 @@ export function DisclaimerPage({ onNavigate }: DisclaimerPageProps) {
             <p className="text-gray-600 mb-4">If you have any questions about this Disclaimer, please reach out:</p>
             <div className="space-y-2">
               <div className="flex items-center gap-3"><span className="text-gray-500 text-sm font-semibold w-20">Business:</span><span className="text-gray-700 font-medium">Dawood Trader</span></div>
-              <div className="flex items-center gap-3"><span className="text-gray-500 text-sm font-semibold w-20">WhatsApp:</span><a href="https://wa.me/923061339140" className="text-emerald-600 hover:text-emerald-700 font-medium">+92 306 1339140</a></div>
+              <div className="flex items-center gap-3"><span className="text-gray-500 text-sm font-semibold w-20">WhatsApp:</span><a href="https://wa.me/923083611140" className="text-emerald-600 hover:text-emerald-700 font-medium">+92 3083611140</a></div>
               <div className="flex items-center gap-3"><span className="text-gray-500 text-sm font-semibold w-20">Email:</span><a href="mailto:dawoodtrader@gmail.com" className="text-emerald-600 hover:text-emerald-700 font-medium">dawoodtrader@gmail.com</a></div>
               <div className="flex items-center gap-3"><span className="text-gray-500 text-sm font-semibold w-20">Location:</span><span className="text-gray-700">Rahim Yar Khan, Punjab, Pakistan</span></div>
             </div>

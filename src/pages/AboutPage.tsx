@@ -127,7 +127,7 @@ export function AboutPage({ onNavigate }: AboutPageProps) {
                 Have questions? Our team is here to help you 24/7
               </p>
               <a
-                href="https://wa.me/923061339140"
+                href="https://wa.me/923083611140"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 bg-white text-emerald-600 px-4 py-2 rounded-lg font-medium text-sm hover:bg-gray-50 transition-colors"

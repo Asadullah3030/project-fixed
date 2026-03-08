@@ -40,7 +40,7 @@ export function ProductDetailPage({ category, selectedProductId, onNavigate }: P
 
   const handleBuyNow = () => {
     const message = `Hi, I want to order:\n\nProduct: ${currentProduct.title}\nPrice: Rs ${currentProduct.discountPrice}`;
-    const whatsappUrl = `https://wa.me/923061339140?text=${encodeURIComponent(message)}`;
+    const whatsappUrl = `https://wa.me/923083611140?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
     onNavigate('thankyou');
   };

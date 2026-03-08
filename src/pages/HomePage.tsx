@@ -63,7 +63,7 @@ export function HomePage({ onNavigate, onViewProduct }: HomePageProps) {
               Shop Now
             </button>
             <a
-              href="https://wa.me/923061339140"
+              href="https://wa.me/923083611140"
               target="_blank"
               rel="noopener noreferrer"
               className="bg-green-500 text-white font-bold px-8 py-4 rounded-2xl hover:bg-green-600 transition-all shadow-xl hover:scale-105 text-lg flex items-center justify-center gap-2"
@@ -241,7 +241,7 @@ export function HomePage({ onNavigate, onViewProduct }: HomePageProps) {
               Contact Us
             </button>
             <a
-              href="https://wa.me/923061339140"
+              href="https://wa.me/923083611140"
               target="_blank"
               rel="noopener noreferrer"
               className="bg-green-500 hover:bg-green-600 text-white font-bold px-8 py-4 rounded-2xl transition-all shadow-xl hover:scale-105 flex items-center justify-center gap-2"
