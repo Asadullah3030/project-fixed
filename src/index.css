@@ -165,7 +165,7 @@ button, a, [role="button"], .cursor-pointer {
 }
 
 .blog-content img {
-  max-width: 100%;
+  max-width: 60% !important;
   border-radius: 12px;
   margin: 1rem auto;
   display: block;

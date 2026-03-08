@@ -126,7 +126,7 @@ export function BlogPostPage({ slug, onNavigate }: BlogPostPageProps) {
       {post.coverImage && (
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6">
           <img src={post.coverImage} alt={post.title}
-            className="w-full h-64 md:h-80 object-cover rounded-2xl shadow-xl" />
+            className="w-[60%] rounded-2xl shadow-xl mt-10" />
         </div>
       )}
 
