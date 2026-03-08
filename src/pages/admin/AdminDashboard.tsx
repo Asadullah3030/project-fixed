@@ -1,242 +1,360 @@
-// ============================================
 // src/pages/admin/AdminDashboard.tsx
-// Firebase ke saath async data loading
-// ============================================
+import { useEffect, useState } from 'react';
+import { collection, getDocs, query, orderBy, limit, where, Timestamp } from 'firebase/firestore';
+import { db } from '../../lab/firebase';
+import { AdminLayout } from '../../components/admin/AdminLayout';
+import { AdminNavigateFn } from '../../AdminApp';
 
-import { useState, useEffect, useMemo } from 'react';
-import { salesStore, productsStore, categoriesStore, seedFirestoreFromProducts } from '../../store/adminStore_firebase';
-import { Sale, AdminProduct, AdminCategory } from '../../types/admin';
-
-function StatCard({ label, value, sub, color, icon }: {
-  label: string; value: string | number; sub?: string; color: string; icon: React.ReactNode;
-}) {
-  return (
-    <div className="bg-slate-800/50 border border-white/5 rounded-2xl p-5 flex items-start gap-4">
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}>{icon}</div>
-      <div>
-        <p className="text-slate-400 text-sm font-medium">{label}</p>
-        <p className="text-white text-2xl font-black mt-0.5">{value}</p>
-        {sub && <p className="text-slate-500 text-xs mt-1">{sub}</p>}
-      </div>
-    </div>
-  );
+interface AdminDashboardProps {
+  onNavigate: AdminNavigateFn;
 }
 
-function MiniBarChart({ data }: { data: { month: string; revenue: number }[] }) {
-  const max = Math.max(...data.map(d => d.revenue), 1);
-  return (
-    <div className="flex items-end gap-1.5 h-24">
-      {data.map((d, i) => (
-        <div key={i} className="flex-1 flex flex-col items-center gap-1">
-          <div className="w-full bg-gradient-to-t from-emerald-600 to-teal-500 rounded-t-md transition-all duration-500"
-            style={{ height: `${Math.max((d.revenue / max) * 100, 4)}%` }} />
-          <span className="text-slate-500 text-[9px] font-medium">{d.month}</span>
-        </div>
-      ))}
-    </div>
-  );
+interface SaleRecord {
+  id: string;
+  customerName: string;
+  customerPhone: string;
+  productName: string;
+  quantity: number;
+  totalAmount: number;
+  status: string;
+  createdAt: Timestamp;
 }
 
-function Skeleton() {
-  return <div className="animate-pulse bg-slate-700/50 rounded-xl h-10 w-full" />;
+interface MonthData {
+  label: string;
+  revenue: number;
+  sales: number;
 }
 
-export function AdminDashboard() {
-  const [sales, setSales] = useState<Sale[]>([]);
-  const [products, setProducts] = useState<AdminProduct[]>([]);
-  const [categories, setCategories] = useState<AdminCategory[]>([]);
+export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
+  const [totalRevenue, setTotalRevenue] = useState(0);
+  const [totalSales, setTotalSales] = useState(0);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [totalCategories, setTotalCategories] = useState(0);
+  const [pendingOrders, setPendingOrders] = useState(0);
+  const [cancelledOrders, setCancelledOrders] = useState(0);
+  const [recentSales, setRecentSales] = useState<SaleRecord[]>([]);
+  const [topProducts, setTopProducts] = useState<{ name: string; revenue: number; units: number }[]>([]);
+  const [monthlyData, setMonthlyData] = useState<MonthData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [seeding, setSeeding] = useState(false);
-  const [seedMsg, setSeedMsg] = useState('');
 
   useEffect(() => {
-    loadData();
+    fetchDashboardData();
   }, []);
 
-  async function loadData() {
-    setLoading(true);
+  const fetchDashboardData = async () => {
     try {
-      const [s, p, c] = await Promise.all([
-        salesStore.getAll(),
-        productsStore.getAll(),
-        categoriesStore.getAll(),
-      ]);
-      setSales(s);
-      setProducts(p);
-      setCategories(c);
+      // Fetch sales
+      const salesSnap = await getDocs(collection(db, 'sales'));
+      const sales: SaleRecord[] = salesSnap.docs.map(d => ({ id: d.id, ...d.data() } as SaleRecord));
+
+      const completed = sales.filter(s => s.status === 'completed' || s.status === 'mukammal');
+      const pending = sales.filter(s => s.status === 'pending');
+      const cancelled = sales.filter(s => s.status === 'cancelled');
+
+      const revenue = completed.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
+      setTotalRevenue(revenue);
+      setTotalSales(completed.length);
+      setPendingOrders(pending.length);
+      setCancelledOrders(cancelled.length);
+
+      // Recent 5 sales
+      const sorted = [...sales].sort((a, b) => {
+        const aTime = a.createdAt?.toMillis?.() || 0;
+        const bTime = b.createdAt?.toMillis?.() || 0;
+        return bTime - aTime;
+      });
+      setRecentSales(sorted.slice(0, 5));
+
+      // Top products by revenue
+      const productMap: Record<string, { revenue: number; units: number }> = {};
+      completed.forEach(s => {
+        const key = s.productName || 'Unknown';
+        if (!productMap[key]) productMap[key] = { revenue: 0, units: 0 };
+        productMap[key].revenue += s.totalAmount || 0;
+        productMap[key].units += s.quantity || 0;
+      });
+      const top = Object.entries(productMap)
+        .map(([name, data]) => ({ name, ...data }))
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 5);
+      setTopProducts(top);
+
+      // Monthly data (last 6 months)
+      const now = new Date();
+      const months: MonthData[] = [];
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const label = d.toLocaleString('default', { month: 'short' });
+        const monthSales = completed.filter(s => {
+          if (!s.createdAt?.toDate) return false;
+          const sd = s.createdAt.toDate();
+          return sd.getMonth() === d.getMonth() && sd.getFullYear() === d.getFullYear();
+        });
+        months.push({
+          label,
+          revenue: monthSales.reduce((sum, s) => sum + (s.totalAmount || 0), 0),
+          sales: monthSales.length,
+        });
+      }
+      setMonthlyData(months);
+
+      // Products & Categories count
+      const prodSnap = await getDocs(collection(db, 'products'));
+      setTotalProducts(prodSnap.size);
+      const catSnap = await getDocs(collection(db, 'categories'));
+      setTotalCategories(catSnap.size);
     } catch (err) {
-      console.error('Data load error:', err);
+      console.error('Dashboard fetch error:', err);
     } finally {
       setLoading(false);
     }
-  }
-
-  async function handleSeed() {
-    setSeeding(true);
-    setSeedMsg('');
-    try {
-      const result = await seedFirestoreFromProducts();
-      setSeedMsg(`✓ ${result.categories} categories aur ${result.products} products Firestore mein add ho gaye!`);
-      await loadData();
-    } catch (err) {
-      setSeedMsg('❌ Error: ' + String(err));
-    } finally {
-      setSeeding(false);
-    }
-  }
-
-  const stats = useMemo(() => {
-    const completed = sales.filter(s => s.status === 'completed');
-    const totalRevenue = completed.reduce((sum, s) => sum + s.salePrice * s.quantity, 0);
-    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const now = new Date();
-    const monthlyData = Array.from({ length: 6 }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
-      const monthSales = completed.filter(s => {
-        const sd = new Date(s.createdAt);
-        return sd.getFullYear() === d.getFullYear() && sd.getMonth() === d.getMonth();
-      });
-      return {
-        month: monthNames[d.getMonth()],
-        revenue: monthSales.reduce((sum, s) => sum + s.salePrice * s.quantity, 0),
-        sales: monthSales.length,
-      };
-    });
-    const productRevMap: Record<string, { title: string; revenue: number; sales: number }> = {};
-    completed.forEach(s => {
-      if (!productRevMap[s.productId]) productRevMap[s.productId] = { title: s.productTitle, revenue: 0, sales: 0 };
-      productRevMap[s.productId].revenue += s.salePrice * s.quantity;
-      productRevMap[s.productId].sales += s.quantity;
-    });
-    const topProducts = Object.values(productRevMap).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
-    return { totalRevenue, completedSales: completed.length, pendingSales: sales.filter(s => s.status === 'pending').length, monthlyData, topProducts };
-  }, [sales, products, categories]);
-
-  const statusBadge = (status: Sale['status']) => {
-    const map = { completed: 'bg-emerald-500/20 text-emerald-400', pending: 'bg-yellow-500/20 text-yellow-400', cancelled: 'bg-red-500/20 text-red-400' };
-    const labels = { completed: 'Mukammal', pending: 'Pending', cancelled: 'Cancel' };
-    return <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${map[status]}`}>{labels[status]}</span>;
   };
 
-  return (
-    <div className="space-y-6">
+  const maxRevenue = Math.max(...monthlyData.map(m => m.revenue), 1);
 
-      {/* Seed Banner - show only if no products in Firestore */}
-      {!loading && products.length === 0 && (
-        <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-2xl p-5">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-              <h3 className="text-amber-300 font-bold">🚀 Firestore Khali Hai!</h3>
-              <p className="text-amber-200/70 text-sm mt-1">
-                Apna existing products.ts ka data Firestore mein import karo. Yeh sirf ek baar karna hai.
-              </p>
-              {seedMsg && <p className="text-sm mt-2 text-white">{seedMsg}</p>}
-            </div>
-            <button
-              onClick={handleSeed}
-              disabled={seeding}
-              className="bg-amber-500 hover:bg-amber-600 text-white font-bold px-5 py-2.5 rounded-xl transition-colors flex items-center gap-2 flex-shrink-0 disabled:opacity-60"
-            >
-              {seeding ? (
-                <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Importing...</>
-              ) : '⬆️ Data Import Karo'}
-            </button>
+  const statCards = [
+    {
+      label: 'Kul Amdani',
+      value: `Rs ${totalRevenue.toLocaleString()}`,
+      sub: 'Completed sales se',
+      icon: '💰',
+      color: 'from-emerald-500 to-teal-600',
+      bg: 'bg-emerald-50',
+      text: 'text-emerald-700',
+    },
+    {
+      label: 'Total Sales',
+      value: totalSales.toString(),
+      sub: `${totalSales} mukammal`,
+      icon: '📈',
+      color: 'from-blue-500 to-indigo-600',
+      bg: 'bg-blue-50',
+      text: 'text-blue-700',
+    },
+    {
+      label: 'Products',
+      value: totalProducts.toString(),
+      sub: `${totalCategories} categories`,
+      icon: '📦',
+      color: 'from-violet-500 to-purple-600',
+      bg: 'bg-violet-50',
+      text: 'text-violet-700',
+    },
+    {
+      label: 'Pending Orders',
+      value: pendingOrders.toString(),
+      sub: `${cancelledOrders} cancelled`,
+      icon: '⏳',
+      color: 'from-orange-500 to-amber-600',
+      bg: 'bg-orange-50',
+      text: 'text-orange-700',
+    },
+  ];
+
+  if (loading) {
+    return (
+      <AdminLayout onNavigate={onNavigate} currentPage="dashboard">
+        <div className="flex items-center justify-center h-64">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-gray-500 font-medium">Loading dashboard...</p>
           </div>
         </div>
-      )}
-      {seedMsg && products.length > 0 && (
-        <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-xl px-4 py-3 text-emerald-300 text-sm">{seedMsg}</div>
-      )}
+      </AdminLayout>
+    );
+  }
 
-      {/* Stats */}
-      {loading ? (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => <div key={i} className="bg-slate-800/50 border border-white/5 rounded-2xl p-5"><Skeleton /></div>)}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Kul Amdani" value={`Rs ${stats.totalRevenue.toLocaleString()}`} sub="Completed sales se" color="bg-emerald-500/20"
-            icon={<svg className="w-6 h-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-          />
-          <StatCard label="Total Sales" value={sales.length} sub={`${stats.completedSales} mukammal`} color="bg-teal-500/20"
-            icon={<svg className="w-6 h-6 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
-          />
-          <StatCard label="Products" value={products.length} sub={`${categories.length} categories`} color="bg-blue-500/20"
-            icon={<svg className="w-6 h-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>}
-          />
-          <StatCard label="Pending Orders" value={stats.pendingSales} sub={`${sales.filter(s => s.status === 'cancelled').length} cancelled`} color="bg-yellow-500/20"
-            icon={<svg className="w-6 h-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-          />
-        </div>
-      )}
+  return (
+    <AdminLayout onNavigate={onNavigate} currentPage="dashboard">
+      <div className="space-y-6">
 
-      {/* Charts */}
-      {!loading && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="bg-slate-800/50 border border-white/5 rounded-2xl p-5">
-            <h3 className="text-white font-bold mb-1">Monthly Revenue</h3>
-            <p className="text-slate-400 text-xs mb-4">Pichhle 6 mahine</p>
-            <MiniBarChart data={stats.monthlyData} />
+        {/* Stat Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          {statCards.map((card, i) => (
+            <div
+              key={i}
+              className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className={`w-11 h-11 ${card.bg} rounded-xl flex items-center justify-center text-xl`}>
+                  {card.icon}
+                </div>
+                <span className={`text-xs font-semibold ${card.text} ${card.bg} px-2.5 py-1 rounded-full`}>
+                  Live
+                </span>
+              </div>
+              <p className="text-xs text-gray-400 font-medium mb-1">{card.label}</p>
+              <p className="text-2xl font-extrabold text-gray-800 mb-1">{card.value}</p>
+              <p className="text-xs text-gray-400">{card.sub}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Charts Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+          {/* Monthly Revenue Chart */}
+          <div className="lg:col-span-2 bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-base font-bold text-gray-800">Monthly Revenue</h2>
+                <p className="text-xs text-gray-400 mt-0.5">Pichle 6 mahine</p>
+              </div>
+              <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full text-xs font-semibold">
+                <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                Revenue
+              </div>
+            </div>
+
+            {/* Bar Chart */}
+            <div className="flex items-end gap-3 h-40 mb-3">
+              {monthlyData.map((m, i) => {
+                const height = maxRevenue > 0 ? (m.revenue / maxRevenue) * 100 : 0;
+                const isLast = i === monthlyData.length - 1;
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-2 group relative">
+                    {/* Tooltip */}
+                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                      Rs {m.revenue.toLocaleString()}
+                    </div>
+                    <div
+                      className={`w-full rounded-t-lg transition-all duration-500 ${
+                        isLast
+                          ? 'bg-gradient-to-t from-emerald-600 to-emerald-400'
+                          : 'bg-gradient-to-t from-emerald-200 to-emerald-100 group-hover:from-emerald-400 group-hover:to-emerald-300'
+                      }`}
+                      style={{ height: `${Math.max(height, 4)}%` }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex gap-3">
+              {monthlyData.map((m, i) => (
+                <div key={i} className="flex-1 text-center">
+                  <p className="text-xs font-semibold text-gray-500">{m.label}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Monthly Summary Boxes */}
             <div className="mt-4 grid grid-cols-3 gap-2">
-              {stats.monthlyData.slice(-3).map((d, i) => (
-                <div key={i} className="bg-slate-700/50 rounded-xl p-3">
-                  <p className="text-slate-400 text-xs">{d.month}</p>
-                  <p className="text-white font-bold text-sm">Rs {d.revenue.toLocaleString()}</p>
-                  <p className="text-emerald-400 text-xs">{d.sales} sales</p>
+              {monthlyData.slice(-3).map((m, i) => (
+                <div key={i} className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                  <p className="text-xs text-gray-400 font-medium">{m.label}</p>
+                  <p className="text-sm font-bold text-gray-800 mt-1">Rs {m.revenue.toLocaleString()}</p>
+                  <p className="text-xs text-emerald-600 font-medium">{m.sales} sales</p>
                 </div>
               ))}
             </div>
           </div>
-          <div className="bg-slate-800/50 border border-white/5 rounded-2xl p-5">
-            <h3 className="text-white font-bold mb-1">Top Products</h3>
-            <p className="text-slate-400 text-xs mb-4">Revenue ke hisaab se</p>
-            {stats.topProducts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-32 text-slate-500 text-sm">Abhi koi completed sale nahi</div>
+
+          {/* Top Products */}
+          <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+            <div className="mb-5">
+              <h2 className="text-base font-bold text-gray-800">Top Products</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Revenue ke hisab se</p>
+            </div>
+            {topProducts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-32 text-center">
+                <p className="text-3xl mb-2">📊</p>
+                <p className="text-sm text-gray-400">Koi sale nahi abi tak</p>
+              </div>
             ) : (
               <div className="space-y-3">
-                {stats.topProducts.map((p, i) => (
+                {topProducts.map((p, i) => (
                   <div key={i} className="flex items-center gap-3">
-                    <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm font-medium truncate">{p.title}</p>
-                      <p className="text-slate-400 text-xs">{p.sales} units</p>
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${
+                      i === 0 ? 'bg-gradient-to-br from-yellow-400 to-orange-500' :
+                      i === 1 ? 'bg-gradient-to-br from-gray-400 to-gray-500' :
+                      'bg-gradient-to-br from-amber-600 to-amber-700'
+                    }`}>
+                      {i + 1}
                     </div>
-                    <p className="text-emerald-400 font-bold text-sm flex-shrink-0">Rs {p.revenue.toLocaleString()}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-gray-800 truncate">{p.name}</p>
+                      <p className="text-xs text-gray-400">{p.units} units</p>
+                    </div>
+                    <p className="text-xs font-bold text-emerald-600 whitespace-nowrap">
+                      Rs {p.revenue.toLocaleString()}
+                    </p>
                   </div>
                 ))}
               </div>
             )}
           </div>
         </div>
-      )}
 
-      {/* Recent Sales */}
-      {!loading && (
-        <div className="bg-slate-800/50 border border-white/5 rounded-2xl p-5">
-          <h3 className="text-white font-bold mb-4">Recent Sales</h3>
-          {sales.length === 0 ? (
-            <div className="text-center py-10 text-slate-500">
-              <svg className="w-12 h-12 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
-              <p>Sales section mein jaa kar sale record karein!</p>
+        {/* Recent Sales Table */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <div>
+              <h2 className="text-base font-bold text-gray-800">Recent Sales</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Akhri 5 transactions</p>
+            </div>
+            <button
+              onClick={() => onNavigate('sales')}
+              className="cursor-pointer text-xs font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              Sab dekho →
+            </button>
+          </div>
+
+          {recentSales.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <p className="text-4xl mb-3">🛒</p>
+              <p className="text-sm font-medium text-gray-500">Abhi koi sale nahi</p>
+              <button
+                onClick={() => onNavigate('sales')}
+                className="cursor-pointer mt-3 text-xs text-emerald-600 font-semibold hover:underline"
+              >
+                Sale add karo
+              </button>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full">
                 <thead>
-                  <tr className="text-slate-400 border-b border-white/5">
-                    <th className="text-left pb-3 font-semibold">Customer</th>
-                    <th className="text-left pb-3 font-semibold hidden md:table-cell">Product</th>
-                    <th className="text-left pb-3 font-semibold">Amount</th>
-                    <th className="text-left pb-3 font-semibold">Status</th>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Customer</th>
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider hidden sm:table-cell">Product</th>
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Amount</th>
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5">
-                  {sales.slice(0, 5).map(sale => (
-                    <tr key={sale.id} className="hover:bg-white/2 transition-colors">
-                      <td className="py-3"><p className="text-white font-medium">{sale.customerName || 'Unknown'}</p><p className="text-slate-500 text-xs">{sale.customerPhone}</p></td>
-                      <td className="py-3 hidden md:table-cell"><p className="text-slate-300 truncate max-w-[200px]">{sale.productTitle}</p><p className="text-slate-500 text-xs">Qty: {sale.quantity}</p></td>
-                      <td className="py-3"><p className="text-emerald-400 font-bold">Rs {(sale.salePrice * sale.quantity).toLocaleString()}</p></td>
-                      <td className="py-3">{statusBadge(sale.status)}</td>
+                <tbody className="divide-y divide-gray-50">
+                  {recentSales.map((sale) => (
+                    <tr key={sale.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-5 py-3.5">
+                        <p className="text-sm font-semibold text-gray-800">{sale.customerName}</p>
+                        <p className="text-xs text-gray-400">{sale.customerPhone}</p>
+                      </td>
+                      <td className="px-5 py-3.5 hidden sm:table-cell">
+                        <p className="text-sm text-gray-700 font-medium truncate max-w-[200px]">{sale.productName}</p>
+                        <p className="text-xs text-gray-400">Qty: {sale.quantity}</p>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <p className="text-sm font-bold text-emerald-600">Rs {(sale.totalAmount || 0).toLocaleString()}</p>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                          sale.status === 'completed' || sale.status === 'mukammal'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : sale.status === 'pending'
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-red-100 text-red-700'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            sale.status === 'completed' || sale.status === 'mukammal'
+                              ? 'bg-emerald-500'
+                              : sale.status === 'pending'
+                              ? 'bg-amber-500'
+                              : 'bg-red-500'
+                          }`}></span>
+                          {sale.status}
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -244,7 +362,27 @@ export function AdminDashboard() {
             </div>
           )}
         </div>
-      )}
-    </div>
+
+        {/* Quick Actions */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: 'Sale Add', icon: '➕', page: 'sales', color: 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100' },
+            { label: 'Product Add', icon: '📦', page: 'products', color: 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100' },
+            { label: 'Category Add', icon: '🏷️', page: 'categories', color: 'bg-violet-50 border-violet-200 text-violet-700 hover:bg-violet-100' },
+            { label: 'Blog Likho', icon: '✍️', page: 'blogs', color: 'bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100' },
+          ].map((action, i) => (
+            <button
+              key={i}
+              onClick={() => onNavigate(action.page)}
+              className={`cursor-pointer flex flex-col items-center gap-2 p-4 rounded-xl border font-semibold text-sm transition-all duration-200 ${action.color}`}
+            >
+              <span className="text-2xl">{action.icon}</span>
+              {action.label}
+            </button>
+          ))}
+        </div>
+
+      </div>
+    </AdminLayout>
   );
 }

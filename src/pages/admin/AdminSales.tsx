@@ -1,267 +1,472 @@
-// ============================================
 // src/pages/admin/AdminSales.tsx
-// Firebase async version
-// ============================================
+import { useState, useEffect } from 'react';
+import {
+  collection, getDocs, addDoc, updateDoc, deleteDoc,
+  doc, serverTimestamp, orderBy, query
+} from 'firebase/firestore';
+import { db } from '../../lab/firebase';
+import { AdminLayout } from '../../components/admin/AdminLayout';
+import { AdminNavigateFn } from '../../AdminApp';
 
-import { useState, useEffect, useMemo } from 'react';
-import { salesStore, productsStore, categoriesStore } from '../../store/adminStore_firebase';
-import { Sale, AdminProduct, AdminCategory } from '../../types/admin';
+interface AdminSalesProps {
+  onNavigate: AdminNavigateFn;
+}
 
-const STATUS_MAP = {
-  pending:   { label: 'Pending',   cls: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
-  completed: { label: 'Mukammal', cls: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
-  cancelled: { label: 'Cancel',   cls: 'bg-red-500/20 text-red-400 border-red-500/30' },
+interface Sale {
+  id: string;
+  customerName: string;
+  customerPhone: string;
+  productName: string;
+  quantity: number;
+  totalAmount: number;
+  status: string;
+  notes?: string;
+  createdAt?: any;
+}
+
+const emptyForm = {
+  customerName: '',
+  customerPhone: '',
+  productName: '',
+  quantity: '1',
+  totalAmount: '',
+  status: 'completed',
+  notes: '',
 };
 
-interface FormData {
-  productId: string; quantity: string; salePrice: string;
-  customerName: string; customerPhone: string; note: string; status: Sale['status'];
-}
-const emptyForm: FormData = { productId: '', quantity: '1', salePrice: '', customerName: '', customerPhone: '', note: '', status: 'completed' };
+const STATUS_OPTIONS = [
+  { value: 'completed', label: 'Mukammal', color: 'emerald' },
+  { value: 'pending', label: 'Pending', color: 'amber' },
+  { value: 'cancelled', label: 'Cancel', color: 'red' },
+];
 
-export function AdminSales() {
+const statusStyle = (status: string) => {
+  if (status === 'completed' || status === 'mukammal') return 'bg-emerald-100 text-emerald-700';
+  if (status === 'pending') return 'bg-amber-100 text-amber-700';
+  return 'bg-red-100 text-red-600';
+};
+
+const statusDot = (status: string) => {
+  if (status === 'completed' || status === 'mukammal') return 'bg-emerald-500';
+  if (status === 'pending') return 'bg-amber-500';
+  return 'bg-red-500';
+};
+
+// ✅ InputField OUTSIDE AdminSales — fixes focus loss bug
+interface InputFieldProps {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  type?: string;
+  required?: boolean;
+}
+
+function InputField({ label, value, onChange, placeholder, type = 'text', required = false }: InputFieldProps) {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      <input
+        type={type}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm text-gray-800 font-medium focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 transition-all"
+      />
+    </div>
+  );
+}
+
+export function AdminSales({ onNavigate }: AdminSalesProps) {
   const [sales, setSales] = useState<Sale[]>([]);
-  const [products, setProducts] = useState<AdminProduct[]>([]);
-  const [categories, setCategories] = useState<AdminCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState<FormData>(emptyForm);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState<'all' | Sale['status']>('all');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
-  const [viewSale, setViewSale] = useState<Sale | null>(null);
+  const [search, setSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { fetchSales(); }, []);
 
-  async function load() {
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const fetchSales = async () => {
     setLoading(true);
     try {
-      const [s, p, c] = await Promise.all([salesStore.getAll(), productsStore.getAll(), categoriesStore.getAll()]);
-      setSales(s); setProducts(p); setCategories(c);
-    } catch { showToast('Data load nahi hua', 'error'); }
-    finally { setLoading(false); }
-  }
+      const q = query(collection(db, 'sales'), orderBy('createdAt', 'desc'));
+      const snap = await getDocs(q);
+      setSales(snap.docs.map(d => ({ id: d.id, ...d.data() } as Sale)));
+    } catch {
+      try {
+        const snap = await getDocs(collection(db, 'sales'));
+        setSales(snap.docs.map(d => ({ id: d.id, ...d.data() } as Sale)));
+      } catch {
+        showToast('Sales load nahi ho sakin', 'error');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const selectedProduct = useMemo(() => products.find(p => p.id === form.productId), [products, form.productId]);
-  const filtered = useMemo(() => filterStatus === 'all' ? sales : sales.filter(s => s.status === filterStatus), [sales, filterStatus]);
-
-  const totalStats = useMemo(() => {
-    const completed = sales.filter(s => s.status === 'completed');
-    return { totalRevenue: completed.reduce((sum, s) => sum + s.salePrice * s.quantity, 0), totalSales: sales.length, completedCount: completed.length };
-  }, [sales]);
-
-  function showToast(msg: string, type: 'success' | 'error' = 'success') {
-    setToast({ msg, type }); setTimeout(() => setToast(null), 3000);
-  }
-
-  function openAdd() {
-    const firstProduct = products[0];
-    setForm({ ...emptyForm, productId: firstProduct?.id || '', salePrice: firstProduct?.discountPrice || '' });
-    setEditId(null); setShowForm(true);
-  }
-
-  function openEdit(s: Sale) {
-    setForm({ productId: s.productId, quantity: String(s.quantity), salePrice: String(s.salePrice), customerName: s.customerName, customerPhone: s.customerPhone, note: s.note, status: s.status });
-    setEditId(s.id); setShowForm(true);
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const p = products.find(pr => pr.id === form.productId);
-    const cat = categories.find(c => c.id === p?.categoryId);
-    if (!p) return;
+  const handleSubmit = async () => {
+    if (!form.customerName.trim() || !form.productName.trim() || !form.totalAmount) {
+      showToast('Customer, Product aur Amount zaroori hain', 'error');
+      return;
+    }
     setSaving(true);
-    const data = {
-      productId: p.id, productTitle: p.shortTitle, categoryId: p.categoryId, categoryName: cat?.name || '',
-      quantity: parseInt(form.quantity) || 1, salePrice: parseInt(form.salePrice) || parseInt(p.discountPrice),
-      originalPrice: parseInt(p.originalPrice), customerName: form.customerName, customerPhone: form.customerPhone,
-      note: form.note, status: form.status,
-    };
     try {
-      if (editId) { await salesStore.update(editId, data); showToast('Sale update ho gayi!'); }
-      else { await salesStore.create(data); showToast('Sale record ho gayi!'); }
-      setShowForm(false); await load();
-    } catch { showToast('Error aaya', 'error'); }
-    finally { setSaving(false); }
-  }
+      const payload = {
+        customerName: form.customerName.trim(),
+        customerPhone: form.customerPhone.trim(),
+        productName: form.productName.trim(),
+        quantity: parseInt(form.quantity) || 1,
+        totalAmount: parseFloat(form.totalAmount) || 0,
+        status: form.status,
+        notes: form.notes.trim(),
+      };
+      if (editingId) {
+        await updateDoc(doc(db, 'sales', editingId), payload);
+        showToast('Sale update ho gayi');
+      } else {
+        await addDoc(collection(db, 'sales'), { ...payload, createdAt: serverTimestamp() });
+        showToast('Sale add ho gayi');
+      }
+      resetForm();
+      fetchSales();
+    } catch {
+      showToast('Error aa gaya, dobara try karo', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  async function handleDelete() {
-    if (!deleteId) return;
-    setSaving(true);
-    try { await salesStore.delete(deleteId); setDeleteId(null); showToast('Sale delete ho gayi!', 'error'); await load(); }
-    catch { showToast('Delete nahi hua', 'error'); }
-    finally { setSaving(false); }
-  }
+  const handleEdit = (s: Sale) => {
+    setEditingId(s.id);
+    setForm({
+      customerName: s.customerName,
+      customerPhone: s.customerPhone || '',
+      productName: s.productName,
+      quantity: String(s.quantity || 1),
+      totalAmount: String(s.totalAmount || ''),
+      status: s.status,
+      notes: s.notes || '',
+    });
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
-  async function handleStatusChange(id: string, status: Sale['status']) {
-    await salesStore.updateStatus(id, status);
-    setSales(prev => prev.map(s => s.id === id ? { ...s, status } : s));
-    showToast(`Status "${STATUS_MAP[status].label}" ho gaya!`);
-  }
+  const handleQuickStatus = async (id: string, newStatus: string) => {
+    try {
+      await updateDoc(doc(db, 'sales', id), { status: newStatus });
+      setSales(prev => prev.map(s => s.id === id ? { ...s, status: newStatus } : s));
+      showToast('Status update ho gaya');
+    } catch {
+      showToast('Update nahi ho saka', 'error');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'sales', id));
+      showToast('Sale delete ho gayi');
+      setDeleteConfirm(null);
+      fetchSales();
+    } catch {
+      showToast('Delete nahi ho saka', 'error');
+    }
+  };
+
+  const resetForm = () => {
+    setForm(emptyForm);
+    setEditingId(null);
+    setShowForm(false);
+  };
+
+  const filtered = sales.filter(s => {
+    const matchSearch =
+      s.customerName.toLowerCase().includes(search.toLowerCase()) ||
+      s.productName.toLowerCase().includes(search.toLowerCase()) ||
+      (s.customerPhone || '').includes(search);
+    const matchStatus = filterStatus === 'all' || s.status === filterStatus;
+    return matchSearch && matchStatus;
+  });
+
+  const completed = sales.filter(s => s.status === 'completed' || s.status === 'mukammal');
+  const totalRevenue = completed.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
+  const pending = sales.filter(s => s.status === 'pending').length;
 
   return (
-    <div className="space-y-5">
-      {toast && <div className={`fixed top-4 right-4 z-50 px-5 py-3 rounded-xl shadow-xl font-medium text-white text-sm ${toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'}`}>{toast.type === 'success' ? '✓' : '✗'} {toast.msg}</div>}
+    <AdminLayout onNavigate={onNavigate} currentPage="sales">
+      <div className="space-y-5">
 
-      {/* Income Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-gradient-to-br from-emerald-600/20 to-teal-600/20 border border-emerald-500/20 rounded-2xl p-5">
-          <p className="text-emerald-300 text-sm font-medium">Kul Amdani</p>
-          <p className="text-white text-3xl font-black mt-1">Rs {loading ? '...' : totalStats.totalRevenue.toLocaleString()}</p>
-          <p className="text-emerald-400 text-xs mt-1">Sirf completed sales</p>
-        </div>
-        <div className="bg-slate-800/50 border border-white/5 rounded-2xl p-5">
-          <p className="text-slate-400 text-sm">Total Orders</p>
-          <p className="text-white text-3xl font-black mt-1">{loading ? '...' : totalStats.totalSales}</p>
-        </div>
-        <div className="bg-slate-800/50 border border-white/5 rounded-2xl p-5">
-          <p className="text-slate-400 text-sm">Avg Order</p>
-          <p className="text-white text-3xl font-black mt-1">
-            Rs {loading || !totalStats.completedCount ? '0' : Math.round(totalStats.totalRevenue / totalStats.completedCount).toLocaleString()}
-          </p>
-        </div>
-      </div>
-
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div><h2 className="text-white text-xl font-black">Sales</h2><p className="text-slate-400 text-sm">{loading ? '...' : `${filtered.length} orders`}</p></div>
-        <button onClick={openAdd} className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 py-2.5 rounded-xl font-semibold text-sm flex items-center gap-2 hover:from-emerald-700 hover:to-teal-700 transition-all w-fit">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-          Nai Sale
-        </button>
-      </div>
-
-      <div className="flex gap-2 flex-wrap">
-        {(['all', 'pending', 'completed', 'cancelled'] as const).map(s => (
-          <button key={s} onClick={() => setFilterStatus(s)} className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${filterStatus === s ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white border border-white/5'}`}>
-            {s === 'all' ? 'Sab' : STATUS_MAP[s].label}
-            <span className="ml-1.5 text-xs opacity-70">({s === 'all' ? sales.length : sales.filter(sale => sale.status === s).length})</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="bg-slate-800/50 border border-white/5 rounded-2xl overflow-hidden">
-        {loading ? (
-          <div className="p-8 space-y-3">{[...Array(4)].map((_, i) => <div key={i} className="h-10 bg-slate-700/50 rounded-xl animate-pulse" />)}</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead><tr className="border-b border-white/5">
-                <th className="text-left px-4 py-3 text-slate-400 font-semibold">Customer</th>
-                <th className="text-left px-4 py-3 text-slate-400 font-semibold hidden md:table-cell">Product</th>
-                <th className="text-left px-4 py-3 text-slate-400 font-semibold">Amount</th>
-                <th className="text-left px-4 py-3 text-slate-400 font-semibold">Status</th>
-                <th className="text-left px-4 py-3 text-slate-400 font-semibold hidden lg:table-cell">Date</th>
-                <th className="text-right px-4 py-3 text-slate-400 font-semibold">Actions</th>
-              </tr></thead>
-              <tbody className="divide-y divide-white/5">
-                {filtered.length === 0 ? (
-                  <tr><td colSpan={6} className="text-center py-12 text-slate-500">Koi sale nahi mili</td></tr>
-                ) : filtered.map(sale => (
-                  <tr key={sale.id} className="hover:bg-white/2 transition-colors">
-                    <td className="px-4 py-3"><p className="text-white font-medium">{sale.customerName || 'N/A'}</p><p className="text-slate-500 text-xs">{sale.customerPhone}</p></td>
-                    <td className="px-4 py-3 hidden md:table-cell"><p className="text-slate-300 truncate max-w-[180px] text-xs">{sale.productTitle}</p><p className="text-slate-500 text-xs">Qty: {sale.quantity}</p></td>
-                    <td className="px-4 py-3"><p className="text-emerald-400 font-bold">Rs {(sale.salePrice * sale.quantity).toLocaleString()}</p></td>
-                    <td className="px-4 py-3">
-                      <select value={sale.status} onChange={e => handleStatusChange(sale.id, e.target.value as Sale['status'])} className={`text-xs font-semibold border rounded-full px-2.5 py-1 outline-none cursor-pointer bg-transparent ${STATUS_MAP[sale.status].cls}`}>
-                        <option value="pending">Pending</option>
-                        <option value="completed">Mukammal</option>
-                        <option value="cancelled">Cancel</option>
-                      </select>
-                    </td>
-                    <td className="px-4 py-3 hidden lg:table-cell"><p className="text-slate-400 text-xs">{new Date(sale.createdAt).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' })}</p></td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button onClick={() => setViewSale(sale)} className="p-2 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white rounded-lg transition-colors"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg></button>
-                        <button onClick={() => openEdit(sale)} className="p-2 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white rounded-lg transition-colors"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg></button>
-                        <button onClick={() => setDeleteId(sale.id)} className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {toast && (
+          <div className={`fixed top-5 right-5 z-50 px-5 py-3 rounded-2xl shadow-lg text-sm font-semibold text-white ${
+            toast.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'
+          }`}>
+            {toast.msg}
           </div>
         )}
-      </div>
 
-      {/* View Modal */}
-      {viewSale && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
-            <div className="p-5 border-b border-white/5 flex items-center justify-between"><h3 className="text-white font-bold">Sale Tafseel</h3><button onClick={() => setViewSale(null)} className="text-slate-400 hover:text-white"><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button></div>
-            <div className="p-5 space-y-3 text-sm">
-              {[['Customer', viewSale.customerName || 'N/A'], ['Phone', viewSale.customerPhone || 'N/A'], ['Product', viewSale.productTitle], ['Category', viewSale.categoryName], ['Quantity', String(viewSale.quantity)], ['Sale Price', `Rs ${viewSale.salePrice.toLocaleString()}`], ['Total', `Rs ${(viewSale.salePrice * viewSale.quantity).toLocaleString()}`], ['Status', STATUS_MAP[viewSale.status].label], ['Date', new Date(viewSale.createdAt).toLocaleString('en-PK')]].map(([k, v]) => (
-                <div key={k} className="flex justify-between"><span className="text-slate-400">{k}</span><span className="text-white font-semibold text-right max-w-[60%]">{v}</span></div>
-              ))}
-              {viewSale.note && <div className="bg-slate-800 rounded-xl p-3 mt-2"><p className="text-slate-400 text-xs mb-1">Note:</p><p className="text-white text-xs">{viewSale.note}</p></div>}
-            </div>
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-extrabold text-gray-800">Sales</h2>
+            <p className="text-sm text-gray-400 mt-0.5">{sales.length} total sales</p>
+          </div>
+          {!showForm && (
+            <button
+              onClick={() => { resetForm(); setShowForm(true); }}
+              className="cursor-pointer flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-colors"
+            >
+              + Sale Add
+            </button>
+          )}
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+            <p className="text-xs text-gray-400 font-medium">Kul Amdani</p>
+            <p className="text-lg font-extrabold text-emerald-600 mt-1">Rs {totalRevenue.toLocaleString()}</p>
+            <p className="text-xs text-gray-400">{completed.length} completed</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+            <p className="text-xs text-gray-400 font-medium">Pending</p>
+            <p className="text-lg font-extrabold text-amber-500 mt-1">{pending}</p>
+            <p className="text-xs text-gray-400">orders</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+            <p className="text-xs text-gray-400 font-medium">Total</p>
+            <p className="text-lg font-extrabold text-gray-800 mt-1">{sales.length}</p>
+            <p className="text-xs text-gray-400">sab sales</p>
           </div>
         </div>
-      )}
 
-      {/* Add/Edit Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl my-4">
-            <div className="p-6 border-b border-white/5 flex items-center justify-between"><h3 className="text-white font-bold text-lg">{editId ? 'Sale Edit' : 'Nai Sale Record Karein'}</h3><button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-white"><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button></div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-300 mb-1.5">Product *</label>
-                <select value={form.productId} onChange={e => { const p = products.find(pr => pr.id === e.target.value); setForm(f => ({ ...f, productId: e.target.value, salePrice: p?.discountPrice || '' })); }} className="w-full bg-slate-800 border border-white/10 text-white rounded-xl px-4 py-2.5 outline-none focus:border-emerald-500 transition-all" required>
-                  <option value="">Product chunein...</option>
-                  {products.map(p => <option key={p.id} value={p.id}>{p.shortTitle}</option>)}
-                </select>
-                {selectedProduct && <p className="text-emerald-400 text-xs mt-1">Price: Rs {parseInt(selectedProduct.discountPrice).toLocaleString()}</p>}
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-sm font-semibold text-slate-300 mb-1.5">Quantity *</label><input type="number" min="1" value={form.quantity} onChange={e => setForm({ ...form, quantity: e.target.value })} className="w-full bg-slate-800 border border-white/10 text-white rounded-xl px-4 py-2.5 outline-none focus:border-emerald-500" required /></div>
-                <div><label className="block text-sm font-semibold text-slate-300 mb-1.5">Sale Price (Rs) *</label><input type="number" value={form.salePrice} onChange={e => setForm({ ...form, salePrice: e.target.value })} className="w-full bg-slate-800 border border-white/10 text-white rounded-xl px-4 py-2.5 outline-none focus:border-emerald-500" required /></div>
-              </div>
-              {form.salePrice && form.quantity && (
-                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-2.5">
-                  <p className="text-emerald-400 font-bold text-sm">Total: Rs {(parseInt(form.salePrice || '0') * parseInt(form.quantity || '1')).toLocaleString()}</p>
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-sm font-semibold text-slate-300 mb-1.5">Customer Name</label><input type="text" value={form.customerName} onChange={e => setForm({ ...form, customerName: e.target.value })} placeholder="Ali Ahmed" className="w-full bg-slate-800 border border-white/10 text-white placeholder-slate-500 rounded-xl px-4 py-2.5 outline-none focus:border-emerald-500" /></div>
-                <div><label className="block text-sm font-semibold text-slate-300 mb-1.5">Phone</label><input type="tel" value={form.customerPhone} onChange={e => setForm({ ...form, customerPhone: e.target.value })} placeholder="0300-1234567" className="w-full bg-slate-800 border border-white/10 text-white placeholder-slate-500 rounded-xl px-4 py-2.5 outline-none focus:border-emerald-500" /></div>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-300 mb-1.5">Status</label>
+        {/* Form */}
+        {showForm && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h3 className="text-base font-bold text-gray-800">
+                {editingId ? 'Sale Edit Karo' : 'Nai Sale Add Karo'}
+              </h3>
+              <button onClick={resetForm} className="cursor-pointer text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+                X
+              </button>
+            </div>
+
+            <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <InputField
+                label="Customer Name"
+                value={form.customerName}
+                onChange={v => setForm(f => ({ ...f, customerName: v }))}
+                placeholder="e.g. Ali Ahmed"
+                required
+              />
+              <InputField
+                label="Phone Number"
+                value={form.customerPhone}
+                onChange={v => setForm(f => ({ ...f, customerPhone: v }))}
+                placeholder="e.g. 03001234567"
+              />
+              <InputField
+                label="Product Name"
+                value={form.productName}
+                onChange={v => setForm(f => ({ ...f, productName: v }))}
+                placeholder="e.g. DC Breaker 63A"
+                required
+              />
+              <InputField
+                label="Quantity"
+                value={form.quantity}
+                onChange={v => setForm(f => ({ ...f, quantity: v }))}
+                placeholder="e.g. 2"
+                type="number"
+              />
+              <InputField
+                label="Total Amount (Rs)"
+                value={form.totalAmount}
+                onChange={v => setForm(f => ({ ...f, totalAmount: v }))}
+                placeholder="e.g. 2400"
+                type="number"
+                required
+              />
+
+              {/* Status */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</label>
                 <div className="flex gap-2">
-                  {(['pending', 'completed', 'cancelled'] as const).map(s => (
-                    <button type="button" key={s} onClick={() => setForm({ ...form, status: s })} className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition-all ${form.status === s ? STATUS_MAP[s].cls : 'bg-slate-800 text-slate-400 border-white/10'}`}>{STATUS_MAP[s].label}</button>
+                  {STATUS_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setForm(f => ({ ...f, status: opt.value }))}
+                      className={`cursor-pointer flex-1 py-3 rounded-xl text-xs font-bold border-2 transition-all ${
+                        form.status === opt.value
+                          ? opt.color === 'emerald' ? 'bg-emerald-500 text-white border-emerald-500'
+                          : opt.color === 'amber' ? 'bg-amber-500 text-white border-amber-500'
+                          : 'bg-red-500 text-white border-red-500'
+                          : 'bg-gray-50 text-gray-500 border-gray-200'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
                   ))}
                 </div>
               </div>
-              <div><label className="block text-sm font-semibold text-slate-300 mb-1.5">Note</label><textarea value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} rows={2} className="w-full bg-slate-800 border border-white/10 text-white placeholder-slate-500 rounded-xl px-4 py-2.5 outline-none focus:border-emerald-500 resize-none text-sm" /></div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowForm(false)} className="flex-1 bg-slate-700 text-white py-2.5 rounded-xl font-medium">Cancel</button>
-                <button type="submit" disabled={saving} className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-2.5 rounded-xl font-bold disabled:opacity-60 flex items-center justify-center gap-2">
-                  {saving && <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>}
-                  {editId ? 'Update' : 'Record'} Karein
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
-      {deleteId && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-sm p-6 text-center">
-            <div className="w-14 h-14 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4"><svg className="w-7 h-7 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg></div>
-            <h3 className="text-white font-bold text-lg mb-2">Sale Delete?</h3>
-            <p className="text-slate-400 text-sm mb-6">Yeh wapas nahi ho sakta.</p>
-            <div className="flex gap-3">
-              <button onClick={() => setDeleteId(null)} className="flex-1 bg-slate-700 text-white py-2.5 rounded-xl font-medium">Nahi</button>
-              <button onClick={handleDelete} disabled={saving} className="flex-1 bg-red-600 text-white py-2.5 rounded-xl font-bold disabled:opacity-60">{saving ? '...' : 'Haan'}</button>
+              {/* Notes */}
+              <div className="space-y-1.5 sm:col-span-2">
+                <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Notes (Optional)</label>
+                <textarea
+                  value={form.notes}
+                  onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                  placeholder="Koi khaas baat..."
+                  rows={2}
+                  className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm text-gray-700 font-medium focus:outline-none focus:border-emerald-500 transition-all resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-100">
+              <button onClick={resetForm} className="cursor-pointer px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200">
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={saving}
+                className="cursor-pointer px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-bold disabled:opacity-60 transition-colors"
+              >
+                {saving ? 'Saving...' : editingId ? 'Update Karo' : 'Add Karo'}
+              </button>
             </div>
           </div>
+        )}
+
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Customer ya product search karo..."
+            className="flex-1 px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 font-medium focus:outline-none focus:border-emerald-400 shadow-sm"
+          />
+          <div className="flex gap-2">
+            {['all', 'completed', 'pending', 'cancelled'].map(s => (
+              <button
+                key={s}
+                onClick={() => setFilterStatus(s)}
+                className={`cursor-pointer px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                  filterStatus === s ? 'bg-gray-800 text-white' : 'bg-white text-gray-500 border border-gray-200'
+                }`}
+              >
+                {s === 'all' ? 'Sab' : s === 'completed' ? 'Mukammal' : s === 'pending' ? 'Pending' : 'Cancel'}
+              </button>
+            ))}
+          </div>
         </div>
-      )}
-    </div>
+
+        {/* Sales List */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <p className="text-4xl mb-3">🛒</p>
+              <p className="text-sm font-semibold text-gray-500">
+                {search || filterStatus !== 'all' ? 'Koi sale nahi mili' : 'Abhi koi sale nahi'}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="hidden sm:grid grid-cols-12 px-5 py-3 bg-gray-50 border-b border-gray-100">
+                <div className="col-span-3 text-xs font-semibold text-gray-400 uppercase">Customer</div>
+                <div className="col-span-3 text-xs font-semibold text-gray-400 uppercase">Product</div>
+                <div className="col-span-2 text-xs font-semibold text-gray-400 uppercase">Amount</div>
+                <div className="col-span-2 text-xs font-semibold text-gray-400 uppercase">Status</div>
+                <div className="col-span-2 text-xs font-semibold text-gray-400 uppercase text-right">Actions</div>
+              </div>
+              <div className="divide-y divide-gray-50">
+                {filtered.map(sale => (
+                  <div key={sale.id} className="px-5 py-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex sm:grid sm:grid-cols-12 items-center gap-3 sm:gap-0">
+                      <div className="sm:col-span-3 flex-1 min-w-0">
+                        <p className="text-sm font-bold text-gray-800">{sale.customerName}</p>
+                        <p className="text-xs text-gray-400">{sale.customerPhone || '—'}</p>
+                      </div>
+                      <div className="sm:col-span-3 hidden sm:block">
+                        <p className="text-sm text-gray-700 font-medium truncate">{sale.productName}</p>
+                        <p className="text-xs text-gray-400">Qty: {sale.quantity}</p>
+                      </div>
+                      <div className="sm:col-span-2 hidden sm:block">
+                        <p className="text-sm font-bold text-emerald-600">Rs {(sale.totalAmount || 0).toLocaleString()}</p>
+                      </div>
+                      <div className="sm:col-span-2 hidden sm:block">
+                        <select
+                          value={sale.status}
+                          onChange={e => handleQuickStatus(sale.id, e.target.value)}
+                          className={`cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-full border-0 outline-none appearance-none ${statusStyle(sale.status)}`}
+                        >
+                          {STATUS_OPTIONS.map(o => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="sm:hidden flex-shrink-0 text-right">
+                        <p className="text-sm font-bold text-emerald-600">Rs {(sale.totalAmount || 0).toLocaleString()}</p>
+                        <span className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-xs font-semibold ${statusStyle(sale.status)}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${statusDot(sale.status)}`} />
+                          {sale.status}
+                        </span>
+                      </div>
+                      <div className="sm:col-span-2 flex items-center gap-2 justify-end ml-auto sm:ml-0">
+                        <button
+                          onClick={() => handleEdit(sale)}
+                          className="cursor-pointer px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg"
+                        >
+                          Edit
+                        </button>
+                        {deleteConfirm === sale.id ? (
+                          <div className="flex gap-1">
+                            <button onClick={() => handleDelete(sale.id)} className="cursor-pointer px-2.5 py-1.5 text-xs font-bold text-white bg-red-500 rounded-lg">Haan</button>
+                            <button onClick={() => setDeleteConfirm(null)} className="cursor-pointer px-2.5 py-1.5 text-xs font-semibold text-gray-600 bg-gray-100 rounded-lg">Nahi</button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setDeleteConfirm(sale.id)}
+                            className="cursor-pointer px-2.5 py-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg"
+                          >
+                            Del
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {sale.notes && (
+                      <p className="mt-2 text-xs text-gray-400 bg-gray-50 px-3 py-2 rounded-lg italic">
+                        {sale.notes}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {!loading && filtered.length > 0 && (
+          <p className="text-xs text-gray-400 text-center">
+            {filtered.length} of {sales.length} sales
+          </p>
+        )}
+      </div>
+    </AdminLayout>
   );
 }

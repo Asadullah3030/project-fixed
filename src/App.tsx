@@ -11,6 +11,11 @@ import { AboutPage } from './pages/AboutPage';
 import { ContactPage } from './pages/ContactPage';
 import { ThankYouPage } from './pages/ThankYouPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
+import { TermsOfServicePage } from './pages/TermsOfServicePage';
+import { DisclaimerPage } from './pages/DisclaimerPage';
+import { BlogPage } from './pages/BlogPage';
+import { BlogPostPage } from './pages/BlogPostPage';
 import { ProductCategory } from './data/products';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from './lab/firebase';
@@ -36,9 +41,7 @@ function parseUrl(cats: ProductCategory[]): PageState {
   if (segments.length === 0) return { page: 'home' };
   const first = segments[0];
 
-  // Secret admin URL
   if (first === ADMIN_SECRET_PATH) return { page: 'admin' };
-  // Old /admin URL — redirect to 404 (security)
   if (first === 'admin') return { page: '404' };
 
   switch (first) {
@@ -54,7 +57,13 @@ function parseUrl(cats: ProductCategory[]): PageState {
     case 'about':    return { page: 'about' };
     case 'contact':  return { page: 'contact' };
     case 'thankyou': return { page: 'thankyou' };
-    default:         return { page: '404' };
+    case 'privacy-policy': return { page: 'privacy-policy' };
+    case 'terms-of-service': return { page: 'terms-of-service' };
+    case 'disclaimer': return { page: 'disclaimer' };
+    case 'blog':
+      if (segments[1]) return { page: 'blog-post', data: { slug: segments[1] } };
+      return { page: 'blog' };
+    default: return { page: '404' };
   }
 }
 
@@ -67,8 +76,13 @@ function getUrlForPage(page: string, data?: any): string {
     case 'about':    return '/about';
     case 'contact':  return '/contact';
     case 'thankyou': return '/thankyou';
-    case 'admin':    return `/${ADMIN_SECRET_PATH}`;
-    default:         return '/';
+    case 'privacy-policy': return '/privacy-policy';
+    case 'terms-of-service': return '/terms-of-service';
+    case 'disclaimer': return '/disclaimer';
+    case 'blog':      return '/blog';
+    case 'blog-post': return `/blog/${data?.slug || ''}`;
+    case 'admin':     return `/${ADMIN_SECRET_PATH}`;
+    default:          return '/';
   }
 }
 
@@ -127,8 +141,13 @@ export function App() {
       case 'about':    return <AboutPage onNavigate={handleNavigate} />;
       case 'contact':  return <ContactPage />;
       case 'thankyou': return <ThankYouPage onNavigate={handleNavigate} />;
-      case '404':      return <NotFoundPage onNavigate={handleNavigate} />;
-      default:         return <NotFoundPage onNavigate={handleNavigate} />;
+      case 'privacy-policy': return <PrivacyPolicyPage onNavigate={handleNavigate} />;
+      case 'terms-of-service': return <TermsOfServicePage onNavigate={handleNavigate} />;
+      case 'disclaimer': return <DisclaimerPage onNavigate={handleNavigate} />;
+      case 'blog':      return <BlogPage onNavigate={handleNavigate} />;
+      case 'blog-post': return <BlogPostPage slug={pageState.data?.slug || ''} onNavigate={handleNavigate} />;
+      case '404':       return <NotFoundPage onNavigate={handleNavigate} />;
+      default:          return <NotFoundPage onNavigate={handleNavigate} />;
     }
   };
 

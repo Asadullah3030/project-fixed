@@ -57,3 +57,135 @@ button, a, [role="button"], .cursor-pointer {
 ::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(to bottom, #059669, #0f766e);
 }
+
+
+/* ── Blog Content Styles ─────────────────────────────────── */
+/* Yeh styles src/index.css mein add karo — @tailwind ke baad */
+
+.blog-content h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #111827;
+  margin: 1.5rem 0 1rem;
+  line-height: 1.3;
+}
+
+.blog-content h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 1.5rem 0 0.75rem;
+  line-height: 1.35;
+  border-bottom: 2px solid #d1fae5;
+  padding-bottom: 0.4rem;
+}
+
+.blog-content h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #374151;
+  margin: 1.25rem 0 0.5rem;
+}
+
+.blog-content h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #374151;
+  margin: 1rem 0 0.5rem;
+}
+
+.blog-content p {
+  color: #4b5563;
+  margin-bottom: 1rem;
+  line-height: 1.8;
+}
+
+.blog-content ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin: 0.75rem 0 1rem;
+  color: #4b5563;
+}
+
+.blog-content ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin: 0.75rem 0 1rem;
+  color: #4b5563;
+}
+
+.blog-content li {
+  margin-bottom: 0.4rem;
+  line-height: 1.7;
+}
+
+.blog-content strong, .blog-content b {
+  font-weight: 700;
+  color: #111827;
+}
+
+.blog-content em, .blog-content i {
+  font-style: italic;
+}
+
+.blog-content u {
+  text-decoration: underline;
+}
+
+.blog-content s {
+  text-decoration: line-through;
+  color: #9ca3af;
+}
+
+.blog-content small {
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.blog-content a {
+  color: #059669;
+  text-decoration: underline;
+}
+
+.blog-content blockquote {
+  border-left: 4px solid #10b981;
+  padding-left: 1rem;
+  color: #6b7280;
+  font-style: italic;
+  margin: 1rem 0;
+  background: #f0fdf4;
+  padding: 0.75rem 1rem;
+  border-radius: 0 8px 8px 0;
+}
+
+.blog-content hr {
+  border: none;
+  border-top: 2px solid #e5e7eb;
+  margin: 1.5rem 0;
+}
+
+.blog-content img {
+  max-width: 100%;
+  border-radius: 12px;
+  margin: 1rem auto;
+  display: block;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.blog-content pre {
+  background: #1f2937;
+  color: #f9fafb;
+  padding: 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-size: 0.875rem;
+  margin: 1rem 0;
+}
+
+.blog-content code {
+  background: #f3f4f6;
+  color: #dc2626;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+}

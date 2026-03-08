@@ -1,14 +1,8 @@
 // src/context/AuthContext.tsx
 import { createContext, useContext, useState, ReactNode } from 'react';
 
-// ⚠️ Yeh password sirf aap ko pata hona chahiye
-// GitHub pe push karne se pehle apna password set karo
-const ADMIN_PASSWORD = 'Dawood$11@';
-
-// Admin ka secret URL - /admin ki jagah yeh use hoga
 export const ADMIN_SECRET_PATH = 'admin';
-
-const AUTH_KEY = 'admin';
+const ADMIN_PASSWORD = 'Dawood$11@';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -23,13 +17,11 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    () => sessionStorage.getItem(AUTH_KEY) === 'true'
-  );
+  // No sessionStorage — har baar page load pe login chahiye
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   const login = (password: string): boolean => {
     if (password === ADMIN_PASSWORD) {
-      sessionStorage.setItem(AUTH_KEY, 'true');
       setIsAuthenticated(true);
       return true;
     }
@@ -37,7 +29,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    sessionStorage.removeItem(AUTH_KEY);
     setIsAuthenticated(false);
   };
 
@@ -48,4 +39,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export const useAuth = () => useContext(AuthContext);
+export function useAuth() {
+  return useContext(AuthContext);
+}
