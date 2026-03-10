@@ -105,7 +105,7 @@ export function Footer({ onNavigate }: FooterProps) {
                 </div>
                 <div>
                   <p className="text-white font-semibold">Phone</p>
-                  <a href="tel:+923083611140" className="hover:text-emerald-400 transition-colors">+92 306 1339140</a>
+                  <a href="tel:+923083611140" className="hover:text-emerald-400 transition-colors">+92 3083611140</a>
                 </div>
               </li>
               <li className="flex items-start gap-3">
@@ -145,7 +145,7 @@ export function Footer({ onNavigate }: FooterProps) {
             <span className="text-gray-700">|</span>
             <button onClick={() => onNavigate('disclaimer')} className="cursor-pointer text-gray-500 hover:text-emerald-400 text-sm transition-colors">Disclaimer</button>
             <span className="text-gray-700">|</span>
-            <p className="text-gray-500 text-sm flex items-center gap-1">Made with <span className="text-red-500">❤</span> in Pakistan</p>
+            <p className="text-gray-500 text-sm flex items-center gap-1">Made By <span className="text-red-500">❤</span>Iamchasad</p>
           </div>
         </div>
       </div>

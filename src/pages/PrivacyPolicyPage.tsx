@@ -192,7 +192,7 @@ export function PrivacyPolicyPage({ onNavigate }: PrivacyPolicyPageProps) {
               {[
                 'Request access to the personal data we hold about you',
                 'Request correction or deletion of your personal data',
-                'Opt out of marketing communications at any time',
+                'Contact us to request deletion of any personal data we may hold',
                 'Disable cookies through your browser settings',
               ].map((item, i) => (
                 <li key={i} className="flex items-start gap-2">
